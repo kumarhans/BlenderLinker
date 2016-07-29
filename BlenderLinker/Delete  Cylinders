@@ -1,0 +1,9 @@
+import bpy
+import math
+
+for ob in bpy.context.scene.objects:
+    ob.select = False
+for ob in bpy.context.scene.objects:
+    if ob.name[0:3] == "Cyl":
+        ob.select = True
+        bpy.ops.object.delete()

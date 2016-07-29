@@ -1,0 +1,118 @@
+import bpy
+import math
+import numpy as np
+
+
+
+def getTendVector(obj):
+    coords = [(obj.matrix_world * v.co) for v in obj.data.vertices]
+    coords = np.asarray(coords)
+    center = (np.mean(coords, axis=0))
+
+    maxDistance = (
+    np.amax(np.absolute(np.maximum.reduce(coords) - np.minimum.reduce(coords))))
+
+    (uu, dd, vv) = np.linalg.svd(coords - center)
+    return vv[0]
+
+
+def convertVector(vector):
+    return (vector[0],vector[1],vector[2])
+
+def distanceFormula(x1, y1, z1, x2, y2, z2):
+    d = (x1-x2)**2 + (y1-y2)**2 +(z1-z2)**2
+    d = d**.5
+    return d
+
+def angleBetweenVectors(Vector1,Vector2):
+    dotProduct = Vector1[0]*Vector2[0] + Vector1[1]*Vector2[1] + Vector1[2]*Vector2[2]
+    angle = math.acos(dotProduct)
+    angle = angle/(2 * math.pi) * 360
+    return angle
+
+def cylinder_between(x1, y1, z1, x2, y2, z2, r):
+
+  dx = x2 - x1
+  dy = y2 - y1
+  dz = z2 - z1
+  dist = math.sqrt(dx**2 + dy**2 + dz**2)
+
+  bpy.ops.mesh.primitive_cylinder_add(
+      radius = r,
+      depth = dist,
+      location = (dx/2 + x1, dy/2 + y1, dz/2 + z1)
+  )
+
+  phi = math.atan2(dy, dx)
+  theta = math.acos(dz/dist)
+
+  bpy.context.object.rotation_euler[1] = theta
+  bpy.context.object.rotation_euler[2] = phi
+
+objectList = dict()
+
+def makeObjectList():
+    for ob in bpy.context.scene.objects:
+        print (ob.name,ob.location[0])
+        if ob.name != "Lamp" and ob.name != "Camera" and ob.name[0:3] != "Cyl":
+            if ob not in objectList:
+                objectList[ob] = ob.location
+def makeUnitVector(x,y,z):
+    total = (x**2 + y**2 + z**2)**.5
+    return (x/total,y/total,z/total)
+
+def addCylinders():
+    makeObjectList()
+    for ob in bpy.context.scene.objects:
+        if ob.name != "Lamp" and ob.name != "Camera" and ob.name[0:3] != "Cyl":
+
+            oblocation = convertVector(ob.location)
+
+            closestObject = None
+
+            closestObjectDistance = None
+            closestObjectlocation = None
+            ob2Distance = None
+            ob2Objectlocation = None
+
+            for ob2 in objectList:
+                if ob2 != ob:
+                    if closestObject == None:
+                        closestObject = ob2
+                        closestObjectlocation= convertVector(ob2.location)
+                        closestObjectDistance = distanceFormula(oblocation[0],oblocation[1],oblocation[2],closestObjectlocation[0],closestObjectlocation[1],closestObjectlocation[2])
+                    else:
+                        ob2Objectlocation= convertVector(ob2.location)
+                        ob2ObjectDistance = distanceFormula(oblocation[0],oblocation[1],oblocation[2],ob2Objectlocation[0],ob2Objectlocation[1],ob2Objectlocation[2])
+                        cylinderVector = (oblocation[0] - ob2Objectlocation[0] ,oblocation[1] - ob2Objectlocation[1],oblocation[2] - ob2Objectlocation[2])
+                        cylinderVector = makeUnitVector(cylinderVector[0],cylinderVector[1], cylinderVector[2])
+                        tendVector = getTendVector(ob)
+                        angleBetween = angleBetweenVectors(cylinderVector,tendVector)
+                        if angleBetween < 20 or angleBetween > 160:
+                            if ob2ObjectDistance < closestObjectDistance:
+                                closestObjectDistance = ob2ObjectDistance
+                                closestObjectlocation = ob2Objectlocation
+                                closestObject = ob2
+
+            if closestObjectDistance != None:
+                cylinderVector = (oblocation[0] - closestObjectlocation[0] ,oblocation[1] - closestObjectlocation[1],oblocation[2] - closestObjectlocation[2])
+                cylinderVector = makeUnitVector(cylinderVector[0],cylinderVector[1], cylinderVector[2])
+                print ("CylinderVector: " , cylinderVector)
+                tendVector = getTendVector(ob)
+                print ("TendVector: ", tendVector)
+                angleBetween = angleBetweenVectors(cylinderVector,tendVector)
+                print("angleBetween: ", angleBetween)
+                if angleBetween < 20 or angleBetween > 160:
+                    cylinder_between(oblocation[0], oblocation[1],oblocation[2], closestObjectlocation[0],closestObjectlocation[1],closestObjectlocation[2], .1)
+                    bool_one = ob.modifiers.new(type="BOOLEAN", name="bool 1")
+                    bool_one.object = bpy.context.object
+                    bool_one.operation = 'UNION'
+                    bpy.context.object.hide = True
+                    bool_one = closestObject.modifiers.new(type="BOOLEAN", name="bool 1")
+                    bool_one.object = bpy.context.object
+                    bool_one.operation = 'UNION'
+                    bpy.context.object.hide = True
+                    del objectList[ob]
+
+addCylinders()
+

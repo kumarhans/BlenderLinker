@@ -1,0 +1,71 @@
+import bpy
+import math
+
+def convertVector(vector):
+    return (vector[0],vector[1],vector[2])
+
+def distanceFormula(x1, y1, z1, x2, y2, z2):
+    d = (x1-x2)**2 + (y1-y2)**2 +(z1-z2)**2
+    d = d**.5
+    return d
+
+def cylinder_between(x1, y1, z1, x2, y2, z2, r):
+
+  dx = x2 - x1
+  dy = y2 - y1
+  dz = z2 - z1
+  dist = math.sqrt(dx**2 + dy**2 + dz**2)
+
+  bpy.ops.mesh.primitive_cylinder_add(
+      radius = r,
+      depth = dist,
+      location = (dx/2 + x1, dy/2 + y1, dz/2 + z1)
+  )
+
+  phi = math.atan2(dy, dx)
+  theta = math.acos(dz/dist)
+
+  bpy.context.object.rotation_euler[1] = theta
+  bpy.context.object.rotation_euler[2] = phi
+
+objectList = dict()
+
+for ob in bpy.context.scene.objects:
+    print (ob.name,ob.location[0])
+    if ob.name != "Lamp" and ob.name != "Camera" and ob.name[0:3] != "Cyl":
+        if ob not in objectList:
+            objectList[ob] = ob.location
+
+
+for ob in bpy.context.scene.objects:
+    if ob.name != "Lamp" and ob.name != "Camera" and ob.name[0:3] != "Cyl":
+
+        oblocation = convertVector(ob.location)
+
+        closestObject = None
+
+        closestObjectDistance = None
+        closestObjectlocation = None
+        ob2Distance = None
+        ob2Objectlocation = None
+
+        for ob2 in objectList:
+            if ob2 != ob:
+                if closestObject == None:
+                    closestObject = ob2
+                    closestObjectlocation= convertVector(ob2.location)
+                    closestObjectDistance = distanceFormula(oblocation[0],oblocation[1],oblocation[2],closestObjectlocation[0],closestObjectlocation[1],closestObjectlocation[2])
+                else:
+                    ob2Objectlocation= convertVector(ob2.location)
+                    ob2ObjectDistance = distanceFormula(oblocation[0],oblocation[1],oblocation[2],ob2Objectlocation[0],ob2Objectlocation[1],ob2Objectlocation[2])
+                    if ob2ObjectDistance < closestObjectDistance:
+                        closestObjectDistance = ob2ObjectDistance
+                        closestObjectlocation = ob2Objectlocation
+
+        if closestObjectDistance != None:
+            cylinder_between(oblocation[0],oblocation[1],oblocation[2],closestObjectlocation[0],closestObjectlocation[1],closestObjectlocation[2],.1)
+            del objectList[ob]
+            #bool_one = ob.modifiers.new(type="BOOLEAN", name="bool 1")
+            #bool_one.object = bpy.context.object
+            #bool_one.operation = 'UNION'
+            #bpy.context.object.hide = True

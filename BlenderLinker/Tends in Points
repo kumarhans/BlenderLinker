@@ -1,0 +1,67 @@
+import bpy
+import math
+import numpy as np
+
+me = bpy.context.object.data
+
+def cylinder_between(x1, y1, z1, x2, y2, z2, r):
+
+  dx = x2 - x1
+  dy = y2 - y1
+  dz = z2 - z1
+  dist = math.sqrt(dx**2 + dy**2 + dz**2)
+
+  bpy.ops.mesh.primitive_cylinder_add(
+      radius = r,
+      depth = dist,
+      location = (dx/2 + x1, dy/2 + y1, dz/2 + z1)
+  )
+
+  phi = math.atan2(dy, dx)
+  theta = math.acos(dz/dist)
+
+  bpy.context.object.rotation_euler[1] = theta
+  bpy.context.object.rotation_euler[2] = phi
+
+"""
+for poly in me.polygons:
+    print("Polygon index: %d, length: %d" % (poly.index, poly.loop_total))
+
+    # range is used here to show how the polygons reference loops,
+    # for convenience 'poly.loop_indices' can be used instead.
+    for loop_index in range(poly.loop_start, poly.loop_start + poly.loop_total):
+        print("    Vertex: %d" % me.loops[loop_index].vertex_index)
+"""
+
+obj = bpy.context.active_object
+coords = [(obj.matrix_world * v.co) for v in obj.data.vertices]
+
+
+def findCenter(coords):
+    xTotal = 0
+    yTotal = 0
+    zTotal = 0
+    for point in coords:
+        xTotal += float(point[0])
+        yTotal += float(point[1])
+        zTotal += float(point[2])
+    return (xTotal/len(coords), yTotal/len(coords), zTotal/len(coords))
+
+
+coords = np.asarray(coords)
+center = (np.mean(coords,axis=0))
+#print (center)
+
+maxDistance = (np.amax(np.absolute(np.maximum.reduce(coords) - np.minimum.reduce(coords))))
+
+
+(uu, dd, vv) = np.linalg.svd(coords - center)
+linepts = vv[0] * np.mgrid[(maxDistance)*(-1):maxDistance:2j][:, np.newaxis]
+
+linepts += center
+
+print (linepts)
+firstPoint = linepts[0]
+secondPoint = linepts[1]
+
+cylinder_between(firstPoint[0], firstPoint[1], firstPoint[2], secondPoint [0], secondPoint[1], secondPoint[2], .5)
